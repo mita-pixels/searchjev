@@ -1,7 +1,18 @@
 // Jev の呼び出しとキャッシュ。APIキーはここだけが扱い、ページ側には渡さない
 const API = 'https://api.typesafe.ai/v1/systemone';
 
-// 質問文は poc/score.mjs・candidates.mjs・freshness.mjs で検証したものと同じ
+// 記事の種類（結果の種類と、検索した人が求める種類の両方で使う）
+const KIND_CRITERIA = {
+  guide: '解説・ガイド・手順（やり方や仕組みを説明する記事）',
+  comparison: '比較・おすすめ・ランキング（複数の選択肢を並べて薦める記事）',
+  voice: '体験談・レビュー・口コミ・Q&A・掲示板（個人の経験や意見が中心）',
+  news: 'ニュース・発表・話題の紹介（出来事や発表を報じる記事）',
+  official: '公式の製品・サービス・料金・店舗ページ、公式ドキュメント、制度や規約の説明',
+  video: '動画',
+  other: 'その他（ECや求人の一覧ページなど）',
+};
+
+// 質問文は poc/score.mjs・candidates.mjs・freshness.mjs・intent-match.mjs で検証したものと同じ
 const RESULT_QUESTIONS = {
   seo_filler: {
     type: 'noul',
@@ -41,18 +52,7 @@ const RESULT_QUESTIONS = {
   kind: {
     type: 'choice',
     instructions: 'Google検索結果の1件（`result`）は、どの種類の記事・ページかを選んでください。タイトル・説明文・ドメインから判断します。',
-    criteria: {
-      guide: '解説・ガイド・手順（やり方や仕組みを説明する記事）',
-      comparison: '比較・おすすめ・ランキング（複数の選択肢を並べて薦める記事）',
-      experience: '体験談・レビュー・やってみた（書き手の経験が中心）',
-      news: 'ニュース・発表・話題の紹介（出来事や発表を報じる記事）',
-      qa: 'Q&A・掲示板・質問ページ',
-      official: '公式の製品・サービス・料金・店舗ページ',
-      reference: '公式ドキュメント・制度や規約の説明・辞書',
-      listing: 'EC・求人・店舗などの一覧ページ',
-      video: '動画',
-      other: 'その他',
-    },
+    criteria: KIND_CRITERIA,
   },
   relevance: {
     type: 'score',
@@ -79,6 +79,11 @@ const QUERY_QUESTIONS = {
       '数か月単位で変わる：新しい製品、料金プラン、変化の速いソフトウェアやサービスなど',
       '数週間単位で変わる：生成AIの最新ツール、速報性の高い話題など',
     ],
+  },
+  intent: {
+    type: 'choice',
+    instructions: '検索語（`query`）で検索した人が、いちばん読みたいのはどの種類のページかを選んでください。検索した人の目的（知りたい・選びたい・手続きしたい・最新情報を追いたい など）から考えます。',
+    criteria: KIND_CRITERIA,
   },
 };
 
@@ -122,6 +127,7 @@ const normalize = a => ({
   commercial: a.commercial.noul,
   relevance: a.relevance.score, // 0〜3 のまま（足切りに使う）
   kind: a.kind ? a.kind.choice : null,
+  kindProbs: a.kind ? a.kind.probabilities : null, // 検索意図との一致度の計算に使う
 });
 
 // ---- 本文を読む ----
@@ -155,7 +161,7 @@ async function judgeBody({ query, results }) {
     if (!r.href) return null;
     const k = `b:${query}\n${r.domain}\n${r.title}`;
     const hit = await cacheGet(k, cacheDays * 864e5);
-    if (hit !== undefined) return hit;
+    if (hit === null || (hit && hit.kindProbs)) return hit;
     try {
       const body = await fetchBody(r.href);
       // 本文が短すぎる（ログイン画面・動画ページなど）ときはタイトルの判定のままにする
@@ -184,19 +190,21 @@ async function judge({ query, results }) {
   const maxAge = settings.cacheDays * 864e5;
 
   try {
-    const stalenessP = (async () => {
+    // 検索語ごとの判定（古くなる速さ・検索意図）。v0.3 以前のキャッシュは数値だけなので取り直す
+    const queryP = (async () => {
       const k = `s:${query}`;
       const hit = await cacheGet(k, maxAge);
-      if (hit !== undefined) return hit;
-      const s = (await callJev(apiKey, { query }, QUERY_QUESTIONS)).staleness.score;
-      await cacheSet(k, s);
-      return s;
+      if (hit && typeof hit === 'object' && hit.intent) return hit;
+      const q = await callJev(apiKey, { query }, QUERY_QUESTIONS);
+      const v = { staleness: q.staleness.score, intent: q.intent.probabilities };
+      await cacheSet(k, v);
+      return v;
     })();
 
     const answersP = Promise.all(results.map(async r => {
       const k = `j:${query}\n${r.domain}\n${r.title}`;
       const hit = await cacheGet(k, maxAge);
-      if (hit !== undefined && hit.kind !== undefined) return hit; // v0.2 以前のキャッシュには種類がないので取り直す
+      if (hit && hit.kindProbs) return hit; // v0.3 以前のキャッシュは種類の分け方が違うので取り直す
       const state = { query, result: { title: r.title, snippet: r.snippet, domain: r.domain, url_path: r.path } };
       const a = normalize(await callJev(apiKey, state, RESULT_QUESTIONS));
       await cacheSet(k, a);
@@ -204,8 +212,8 @@ async function judge({ query, results }) {
     }));
 
     // 両方を一緒に待つ（片方だけ待つと、もう片方の失敗が拾われずに残る）
-    const [answers, staleness] = await Promise.all([answersP, stalenessP]);
-    return { ok: true, answers, staleness };
+    const [answers, q] = await Promise.all([answersP, queryP]);
+    return { ok: true, answers, staleness: q.staleness, intent: q.intent };
   } catch (e) {
     return { ok: false, error: e.code || 'network', message: e.message };
   }

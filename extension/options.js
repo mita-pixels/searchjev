@@ -9,18 +9,19 @@ const WEIGHTS = [
   { key: 'google', name: 'Googleの順位', color: '#7a5af5', desc: 'Googleの元の順位を残す。生活系の検索ではGoogleの順位がよく当たる' },
   { key: 'relevance', name: '関連度', color: '#8a8a85', desc: '検索語の疑問に答えていそうかを上げる。検証では量産記事ほど高く出たため、既定は 0' },
   { key: 'kind', name: '記事の種類', color: '#c2417a', desc: '「記事の種類」で選んだ上げる・下げるを効かせる強さ' },
+  { key: 'intent', name: '意図との一致', color: '#0f8a8a', desc: '検索した人が求める種類（例：「〜 おすすめ」なら比較・おすすめ）の記事を上げる' },
 ];
 
 // プレビュー用の見本：「imax おすすめ 映画館」の判定結果（Googleの元の順）。
 // 実際に検索したあとは、直前の検索（content.js が保存する lastSearch）を使う
 let preview = null;
 const SAMPLE = [
-  { t: '至急です。東京でIMAXがあるおすすめの映画館ありますか（知恵袋）', seo: 0.20, firsthand: 1.3, commercial: 0.07, relevance: 2.1, kind: "qa" },
-  { t: 'オタクのお気に入り映画館メモ（東京・神奈川）（note）', seo: 0.38, firsthand: 1.8, commercial: 0.11, relevance: 1.8, kind: "experience" },
+  { t: '至急です。東京でIMAXがあるおすすめの映画館ありますか（知恵袋）', seo: 0.20, firsthand: 1.3, commercial: 0.07, relevance: 2.1, kind: "voice" },
+  { t: 'オタクのお気に入り映画館メモ（東京・神奈川）（note）', seo: 0.38, firsthand: 1.8, commercial: 0.11, relevance: 1.8, kind: "voice" },
   { t: '2026年に東京で観るべきIMAX映画ベスト10（CinemaView）', seo: 0.82, firsthand: 0.8, commercial: 0.47, relevance: 1.8, kind: "comparison" },
   { t: 'IMAX® || TOHOシネマズ（公式）', seo: 0.16, firsthand: 2.8, commercial: 0.70, relevance: 1.3, kind: "official" },
-  { t: 'プロジェクト・ヘイル・メリーのためのベストIMAXスクリーン（Reddit）', seo: 0.41, firsthand: 1.7, commercial: 0.13, relevance: 2.7, kind: "qa" },
-  { t: 'IMAX®の映画館一覧（映画.com）', seo: 0.25, firsthand: 1.0, commercial: 0.39, relevance: 2.5, kind: "listing" },
+  { t: 'プロジェクト・ヘイル・メリーのためのベストIMAXスクリーン（Reddit）', seo: 0.41, firsthand: 1.7, commercial: 0.13, relevance: 2.7, kind: "voice" },
+  { t: 'IMAX®の映画館一覧（映画.com）', seo: 0.25, firsthand: 1.0, commercial: 0.39, relevance: 2.5, kind: "other" },
   { t: 'おすすめの IMAX スクリーン（個人ブログ・スクリーンサイズ一覧）', seo: 0.44, firsthand: 1.4, commercial: 0.19, relevance: 2.5, kind: "comparison" },
   { t: '世界の「最高の映画館100選」に東京エリアから3館がランクイン（Time Out）', seo: 0.23, firsthand: 1.2, commercial: 0.11, relevance: 2.2, kind: "news" },
   { t: '映画オタクによる関東近郊オススメ映画館3選＋α（note）', seo: 0.50, firsthand: 1.9, commercial: 0.18, relevance: 2.7, kind: "comparison" },
@@ -103,7 +104,7 @@ function renderWeights() {
 async function loadPreview() {
   const { lastSearch } = await browser.storage.local.get('lastSearch');
   if (lastSearch && lastSearch.items.length) {
-    preview = { items: lastSearch.items.map(x => ({ ...x.a, t: x.domain ? `${x.t}（${x.domain}）` : x.t, rank: x.rank })) };
+    preview = { intent: lastSearch.intent, items: lastSearch.items.map(x => ({ ...x.a, t: x.domain ? `${x.t}（${x.domain}）` : x.t, rank: x.rank })) };
     $('previewTitle').textContent = `プレビュー：直前の検索「${lastSearch.query}」`;
     $('previewNote').textContent = 'あなたが最後に検索した結果の、実際の判定値とGoogleの順位を使っています。方針や重みを変えると、その場で順位が変わります。';
   } else {
@@ -116,7 +117,7 @@ async function loadPreview() {
 function renderPreview() {
   const rows = preview.items.map(s => {
     const rankScore = Math.max(0, 1 - (s.rank - 1) / 9);
-    return { ...s, orig: s.rank, score: sjFinalScore(s, rankScore, settings), cut: s.relevance < settings.relevanceCutoff };
+    return { ...s, orig: s.rank, score: sjFinalScore(s, rankScore, settings, preview.intent), cut: s.relevance < settings.relevanceCutoff };
   });
   rows.sort((x, y) => (y.cut ? -1 : y.score) - (x.cut ? -1 : x.score) || x.orig - y.orig);
   const tb = $('preview');

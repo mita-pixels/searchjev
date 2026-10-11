@@ -117,6 +117,7 @@
       span('sj-m', `一次情報 ${pct(p.firsthand)}`, `公式・公的機関・実体験・独自データ・専門家の度合い（Jevの評価 ${(a.firsthand * 3).toFixed(1)} / 3）`),
       span('sj-m', `非商業 ${pct(p.commercial)}`, `売り込みらしくなさ。購入・申込への誘導が主目的である確率 ${pct(a.commercial)}%。公式など一次情報が高いページは減点を弱める`),
       span('sj-m', `関連 ${pct(p.relevance)}`, `検索語の疑問に答えていそうか（Jevの評価 ${a.relevance.toFixed(1)} / 3）`),
+      ...(p.intent != null ? [span('sj-m', `意図一致 ${pct(p.intent)}`, 'この記事の種類が、検索した人の求める種類（ツールバーに表示）と合っている度合い')] : []),
       span('sj-muted', `元${item.rank}位`),
     );
     if (a.kind && SJ_KINDS[a.kind]) {
@@ -140,8 +141,8 @@
       if (!it.a) continue;
       it.a.freshness = sjFreshness(it.date, batch.staleness);
       const rankScore = Math.max(0, 1 - (it.rank - 1) / RANK_SPAN);
-      it.parts = sjParts(it.a, rankScore, settings.kindAdjust);
-      it.score = sjFinalScore(it.a, rankScore, settings);
+      it.parts = sjParts(it.a, rankScore, settings.kindAdjust, batch.intent);
+      it.score = sjFinalScore(it.a, rankScore, settings, batch.intent);
     }
   }
 
@@ -195,6 +196,11 @@
     opt.className = 'sj-link';
     opt.textContent = '設定';
     opt.onclick = () => browser.runtime.sendMessage({ type: 'openOptions' });
+    const intent = batches[0] && batches[0].intent;
+    if (intent && !failed) {
+      const topKind = Object.keys(intent).sort((x, y) => intent[y] - intent[x])[0];
+      if (SJ_KINDS[topKind]) toolbar.append(span('sj-muted', `この検索の意図：${SJ_KINDS[topKind]}`, '検索した人がいちばん読みたい記事の種類（Jevの判定）'));
+    }
     if (!failed) toolbar.append(btn);
     toolbar.append(opt);
     const bodyErr = batches.find(b => b.bodyError);
@@ -227,6 +233,7 @@
     const res = await browser.runtime.sendMessage({ type: 'judge', query, results: batch.items.map(it => it.data) });
     if (res.ok) {
       batch.staleness = res.staleness;
+      batch.intent = res.intent;
       batch.items.forEach((it, i) => { it.a = res.answers[i]; });
       saveLastSearch(query, batch);
     } else {
@@ -258,7 +265,7 @@
   // 設定画面のプレビュー用に、直前の検索（最初のまとまり）を保存する
   function saveLastSearch(query, batch) {
     if (batches[0] !== batch) return;
-    browser.storage.local.set({ lastSearch: { query, items: batch.items.map(it => ({ t: it.data.title, domain: it.data.domain, rank: it.rank, a: it.a })) } });
+    browser.storage.local.set({ lastSearch: { query, intent: batch.intent, items: batch.items.map(it => ({ t: it.data.title, domain: it.data.domain, rank: it.rank, a: it.a })) } });
   }
 
   async function main() {
