@@ -1,0 +1,14 @@
+# 秘密情報（コミットしない）
+jevapikey.txt
+amo-credentials.txt
+
+# 検証用（検索結果・記事本文の抜粋を含むため除外）
+poc/
+
+# ビルド成果物など
+web-ext-artifacts/
+node_modules/
+
+# ローカル用の設定・作業ファイル
+.claude/
+extension/.amo-upload-uuid

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="#2f6fdd"/>
+  <!-- 並べ替えを表す3本の棒（上ほど長い） -->
+  <rect x="24" y="30" width="44" height="10" rx="5" fill="#ffffff"/>
+  <rect x="24" y="50" width="32" height="10" rx="5" fill="#ffffff" opacity="0.8"/>
+  <rect x="24" y="70" width="20" height="10" rx="5" fill="#ffffff" opacity="0.6"/>
+  <!-- 虫めがね -->
+  <circle cx="80" cy="70" r="20" fill="none" stroke="#ffffff" stroke-width="9"/>
+  <line x1="94" y1="85" x2="106" y2="98" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+  <!-- チェック -->
+  <polyline points="70,70 77,77 90,63" fill="none" stroke="#ffd34d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

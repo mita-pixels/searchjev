@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SearchJev 設定</title>
+<style>
+  :root { --bg: #f7f7f5; --panel: #fff; --text: #1f1f1d; --muted: #6b6b66; --line: #e2e2dc; --chip: #f0f0ec;
+    --accent: #2f6fdd; --accent-bg: #e8effc; --ok: #1d8a4e; --err: #c4352b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #171716; --panel: #22221f; --text: #ecebe6; --muted: #9b9a93; --line: #34342f; --chip: #2c2c29;
+      --accent: #6b9cf0; --accent-bg: #1f2a3d; --ok: #4cc282; --err: #ef6b60; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  h3 { font-size: 14px; margin: 20px 0 8px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 16px 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  input[type=password], input[type=text] { flex: 1 1 260px; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+  button { font: inherit; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  input[type=range] { width: 100%; }
+  label.check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+  #status { min-height: 1.6em; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+
+  /* プリセット */
+  .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+  .preset { display: block; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+  .preset input { margin: 0 6px 0 0; }
+  .preset b { font-size: 14px; }
+  .preset .muted { display: block; margin-left: 22px; }
+  .preset.selected { border-color: var(--accent); background: var(--accent-bg); }
+
+  /* 重み */
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+  .weight { display: grid; grid-template-columns: 7.5em 1fr 5.5em; gap: 4px 10px; align-items: center; margin: 14px 0 0; }
+  .weight .name { font-weight: 600; font-size: 14px; }
+  .weight .share { font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+  .weight .desc { grid-column: 1 / -1; }
+  .sharebar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin: 6px 0 2px; background: var(--chip); }
+  .sharebar span { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+
+  /* 記事の種類 */
+  .kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; }
+  .kind { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+  .kind select { font: inherit; font-size: 13px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+
+  /* プレビュー */
+  .preview { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .preview td { padding: 5px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+  .preview .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .preview .total { font-weight: 700; }
+  .up { color: var(--ok); } .down { color: var(--err); }
+  .slider { display: grid; grid-template-columns: 9em 1fr 3em; gap: 8px; align-items: center; margin: 10px 0 0; }
+  .slider output { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SearchJev 設定 <span class="muted" id="version"></span></h1>
+  <p class="muted">Google検索結果をJevで判定して、量産記事を下げ、一次情報を上げます。</p>
+
+  <section>
+    <h2>Jev APIキー</h2>
+    <div class="row">
+      <input type="password" id="apiKey" autocomplete="off" placeholder="APIキーを貼り付け">
+      <button id="toggleKey">表示</button>
+      <button class="primary" id="saveKey">保存</button>
+    </div>
+    <p class="muted">キーはこのブラウザの中（拡張のストレージ）にだけ保存され、api.typesafe.ai への送信にだけ使われます。<br>
+      判定のため、検索語と検索結果のタイトル・説明文・ドメインが TypeSafe に送信されます。</p>
+    <p id="status"></p>
+  </section>
+
+  <section>
+    <h2>記事の種類</h2>
+    <p class="muted">各結果の種類（ニュース、比較・おすすめ、体験談など）を判定して表示します。種類ごとに、上げるか下げるかを選べます。
+      既定は手ラベルでの傾向に合わせています（動画・比較記事は「ゴミ」が多く、体験談・公式ドキュメントは「良い」が多かった）。</p>
+    <div class="kinds" id="kinds"></div>
+    <p class="muted">効き具合は「細かく調整する」の「記事の種類」で変えられます。</p>
+  </section>
+
+  <section>
+    <h2>本文を読む</h2>
+    <label class="check"><input type="checkbox" id="readBody"> 記事ページの本文も読んで判定する</label>
+    <p class="muted">タイトルと説明文だけでは見分けにくい記事も判定しやすくなります（手ラベルでの当たり具合 0.857 → 0.881）。
+      そのかわり、Jevの費用が約4倍になり、本文の判定が届くまで数秒かかります（先にタイトルの判定で並べ、届いたものから差し替えます）。<br>
+      オンにすると、記事ページを読み込むために「すべてのウェブサイトのデータへのアクセス」の許可を求めます。
+      ページはCookieなしで取得し、本文の冒頭（約2,500文字）と見出しだけをTypeSafeに送ります。</p>
+    <p id="bodyStatus" class="muted"></p>
+  </section>
+
+  <section>
+    <h2>並べ替えの方針</h2>
+    <p class="muted">各結果には 0〜100 の項目別スコア（すべて高いほど良い）が付き、その重み付き平均が「総合」になります。
+      方針を変えても判定はやり直さないので、追加の費用はかかりません。</p>
+    <div class="presets" id="presets"></div>
+
+    <details id="custom">
+      <summary>細かく調整する</summary>
+      <div class="sharebar" id="sharebar"></div>
+      <div class="legend" id="legend"></div>
+      <div id="weights"></div>
+    </details>
+
+    <h3 id="previewTitle"></h3>
+    <p class="muted" id="previewNote"></p>
+    <table class="preview"><tbody id="preview"></tbody></table>
+  </section>
+
+  <section>
+    <h2>その他の動作</h2>
+    <label class="check"><input type="checkbox" id="enabled"> SearchJev を有効にする</label>
+    <div class="slider"><span>関連度の足切り</span><input type="range" id="relevanceCutoff" min="0" max="2" step="0.25"><output id="relevanceCutoffOut"></output></div>
+    <p class="muted">Jevの関連度（0〜3）がこの値未満の結果は、点数に関係なく最下位へ回します。0 で無効。</p>
+    <label class="check"><input type="checkbox" id="demoteOld"> 古くなりやすい話題では、古い記事を下げる</label>
+    <div class="slider" id="oldWeightRow"><span>古さの重み</span><input type="range" id="oldWeight" min="0" max="3" step="0.5"><output id="oldWeightOut"></output></div>
+  </section>
+
+  <section>
+    <h2>キャッシュ</h2>
+    <p class="muted">同じ検索結果は <span id="cacheDays"></span> 日間キャッシュし、Jevを呼び直しません。</p>
+    <p class="row"><button id="clearCache">キャッシュを消去</button> <span id="cacheInfo" class="muted"></span></p>
+  </section>
+</main>
+<script src="defaults.js"></script>
+<script src="options.js"></script>
+</body>
+</html>

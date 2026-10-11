@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "SearchJev",
+  "version": "0.3.0",
+  "description": "Google検索結果をJevで判定し、量産記事を下げて一次情報を上げる",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "searchjev@searchjev",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": ["searchTerms", "websiteContent"]
+      }
+    },
+    "gecko_android": {
+      "strict_min_version": "128.0"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["https://api.typesafe.ai/*"],
+  "optional_host_permissions": ["<all_urls>"],
+  "background": {
+    "scripts": ["defaults.js", "bodytext.js", "background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/search*", "https://www.google.co.jp/search*"],
+      "js": ["defaults.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_title": "SearchJev の設定",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" }
+  }
+}

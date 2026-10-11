@@ -1,0 +1,37 @@
+.sj-bar, .sj-toolbar {
+  --sj-text: #4d5156; --sj-muted: #70757a; --sj-line: #dadce0; --sj-chip: #f1f3f4;
+  --sj-good: #137333; --sj-good-bg: #e6f4ea; --sj-mid: #8a6d00; --sj-mid-bg: #fef7e0;
+  --sj-low: #b3261e; --sj-low-bg: #fce8e6; --sj-link: #1a0dab;
+  font: 12px/1.6 system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  color: var(--sj-text);
+}
+/* Googleのテーマは OS の設定と独立しているので、ページの背景色から判定して sj-dark を付ける（content.js） */
+.sj-bar.sj-dark, .sj-toolbar.sj-dark {
+  --sj-text: #bdc1c6; --sj-muted: #9aa0a6; --sj-line: #3c4043; --sj-chip: #303134;
+  --sj-good: #81c995; --sj-good-bg: #1e3a2a; --sj-mid: #fdd663; --sj-mid-bg: #3d3420;
+  --sj-low: #f28b82; --sj-low-bg: #3f2422; --sj-link: #8ab4f8;
+}
+.sj-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 6px; }
+.sj-bar[hidden], .sj-toolbar[hidden] { display: none; }
+.sj-total { font-weight: 700; padding: 0 8px; border-radius: 10px; }
+.sj-total.sj-good { color: var(--sj-good); background: var(--sj-good-bg); }
+.sj-total.sj-mid { color: var(--sj-mid); background: var(--sj-mid-bg); }
+.sj-total.sj-low { color: var(--sj-low); background: var(--sj-low-bg); }
+.sj-m { background: var(--sj-chip); padding: 0 6px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+.sj-muted { color: var(--sj-muted); }
+.sj-kind { border: 1px solid var(--sj-line); padding: 0 6px; border-radius: 10px; }
+.sj-kind-up { color: var(--sj-good); border-color: currentColor; }
+.sj-kind-down { color: var(--sj-low); border-color: currentColor; }
+.sj-warn { color: var(--sj-low); font-weight: 600; }
+.sj-link { font: inherit; color: var(--sj-link); background: none; border: 0; padding: 0; cursor: pointer; }
+.sj-link:hover { text-decoration: underline; }
+.sj-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+  margin: 0 0 16px; padding: 6px 12px; border: 1px solid var(--sj-line); border-radius: 8px; font-size: 13px;
+}
+.sj-brand { font-weight: 700; }
+/* スマホ版のGoogleは結果カードの外側に帯が入るので、カードの文字位置に合わせて余白を付ける */
+@media (max-width: 700px) {
+  .sj-bar { padding: 6px 16px 0; margin: 0; }
+  .sj-toolbar { margin: 8px 16px 12px; }
+}
