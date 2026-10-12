@@ -1,9 +1,12 @@
 // Jev の呼び出しとキャッシュ。APIキーはここだけが扱い、ページ側には渡さない
 const API = 'https://api.typesafe.ai/v1/systemone';
 
-// 記事の種類（結果の種類と、検索した人が求める種類の両方で使う）
+// 記事の種類（結果の種類と、検索した人が求める種類の両方で使う）。
+// 選択肢を変えたら KIND_VERSION を上げる（古い分け方で判定したキャッシュを捨てるため）
+const KIND_VERSION = 2;
 const KIND_CRITERIA = {
-  guide: '解説・ガイド・手順（やり方や仕組みを説明する記事）',
+  // 百科事典を明記しないと、出来事を扱う Wikipedia の記事がニュースと判定されやすい
+  guide: '解説・ガイド・手順・百科事典（やり方や仕組み、物事そのものを説明する記事。Wikipediaなどの百科事典・辞書を含む）',
   comparison: '比較・おすすめ・ランキング（複数の選択肢を並べて薦める記事）',
   voice: '体験談・レビュー・口コミ・Q&A・掲示板（個人の経験や意見が中心）',
   news: 'ニュース・発表・話題の紹介（出来事や発表を報じる記事）',
@@ -128,6 +131,7 @@ const normalize = a => ({
   relevance: a.relevance.score, // 0〜3 のまま（足切りに使う）
   kind: a.kind ? a.kind.choice : null,
   kindProbs: a.kind ? a.kind.probabilities : null, // 検索意図との一致度の計算に使う
+  kv: KIND_VERSION,
 });
 
 // ---- 本文を読む ----
@@ -161,7 +165,7 @@ async function judgeBody({ query, results }) {
     if (!r.href) return null;
     const k = `b:${query}\n${r.domain}\n${r.title}`;
     const hit = await cacheGet(k, cacheDays * 864e5);
-    if (hit === null || (hit && hit.kindProbs)) return hit;
+    if (hit === null || (hit && hit.kv === KIND_VERSION)) return hit;
     try {
       const body = await fetchBody(r.href);
       // 本文が短すぎる（ログイン画面・動画ページなど）ときはタイトルの判定のままにする
@@ -194,9 +198,9 @@ async function judge({ query, results }) {
     const queryP = (async () => {
       const k = `s:${query}`;
       const hit = await cacheGet(k, maxAge);
-      if (hit && typeof hit === 'object' && hit.intent) return hit;
+      if (hit && typeof hit === 'object' && hit.kv === KIND_VERSION) return hit;
       const q = await callJev(apiKey, { query }, QUERY_QUESTIONS);
-      const v = { staleness: q.staleness.score, intent: q.intent.probabilities };
+      const v = { staleness: q.staleness.score, intent: q.intent.probabilities, kv: KIND_VERSION };
       await cacheSet(k, v);
       return v;
     })();
@@ -204,7 +208,7 @@ async function judge({ query, results }) {
     const answersP = Promise.all(results.map(async r => {
       const k = `j:${query}\n${r.domain}\n${r.title}`;
       const hit = await cacheGet(k, maxAge);
-      if (hit && hit.kindProbs) return hit; // v0.3 以前のキャッシュは種類の分け方が違うので取り直す
+      if (hit && hit.kv === KIND_VERSION) return hit; // 種類の分け方が違う古いキャッシュは取り直す
       const state = { query, result: { title: r.title, snippet: r.snippet, domain: r.domain, url_path: r.path } };
       const a = normalize(await callJev(apiKey, state, RESULT_QUESTIONS));
       await cacheSet(k, a);
