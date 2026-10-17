@@ -22,6 +22,8 @@
 .sj-kind { border: 1px solid var(--sj-line); padding: 0 6px; border-radius: 10px; }
 .sj-kind-up { color: var(--sj-good); border-color: currentColor; }
 .sj-kind-down { color: var(--sj-low); border-color: currentColor; }
+/* Jevが判定に迷った項目（content.js の sjUnsure） */
+.sj-unsure { opacity: .55; border: 1px dashed var(--sj-line); }
 .sj-warn { color: var(--sj-low); font-weight: 600; }
 .sj-link { font: inherit; color: var(--sj-link); background: none; border: 0; padding: 0; cursor: pointer; }
 .sj-link:hover { text-decoration: underline; }

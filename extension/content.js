@@ -111,27 +111,38 @@
     // 項目別スコアはすべて 0〜100・高いほど良い にそろえて表示する
     const p = item.parts;
     const pct = v => Math.round(v * 100);
+    // Jevが判定に迷った項目は薄く表示して「?」を付ける
+    const unsure = sjUnsure(a);
+    const UNSURE_NOTE = '\n（Jevが判定に迷っています）';
+    const metric = (key, text, title) => {
+      const s = span(unsure[key] ? 'sj-m sj-unsure' : 'sj-m', unsure[key] ? `${text}?` : text, title);
+      if (unsure[key]) s.title += UNSURE_NOTE;
+      return s;
+    };
     bar.append(
       span(`sj-total ${cls}`, `総合 ${item.score}`, '下の項目別スコアを、設定の重みで平均した点数（0〜100）'),
-      span('sj-m', `非量産 ${pct(p.seo)}`, `量産記事らしくなさ。SEO・アフィリエイト目的の量産記事である確率 ${pct(a.seo)}% の裏返し`),
-      span('sj-m', `一次情報 ${pct(p.firsthand)}`, `公式・公的機関・実体験（Q&Aの体験談を含む）・独自データ・専門家の度合い（Jevの評価 ${(a.firsthand * 3).toFixed(1)} / 3）`),
-      span('sj-m', `非商業 ${pct(p.commercial)}`, `売り込みらしくなさ。購入・申込への誘導が主目的である確率 ${pct(a.commercial)}%（企業のオウンドメディアや比較・ランキング記事も売り込みとみなす）。一次情報が高いページは減点を弱める`),
-      span('sj-m', `関連 ${pct(p.relevance)}`, `検索した人の目的を果たせそうなページか（確率 ${pct(a.relevance / 3)}%）`),
+      metric('seo', `非量産 ${pct(p.seo)}`, `量産記事らしくなさ。SEO・アフィリエイト目的の量産記事である確率 ${pct(a.seo)}% の裏返し`),
+      metric('firsthand', `一次情報 ${pct(p.firsthand)}`, `公式・公的機関・実体験（Q&Aの体験談を含む）・独自データ・専門家の度合い（Jevの評価 ${(a.firsthand * 3).toFixed(1)} / 3${a.conf && a.conf.firsthand != null ? `、確信度 ${pct(a.conf.firsthand)}%` : ''}）`),
+      metric('commercial', `非商業 ${pct(p.commercial)}`, `売り込みらしくなさ。購入・申込への誘導が主目的である確率 ${pct(a.commercial)}%（企業のオウンドメディアや比較・ランキング記事も売り込みとみなす）。一次情報が高いページは減点を弱める`),
+      metric('relevance', `関連 ${pct(p.relevance)}`, `検索した人の目的を果たせそうなページか（確率 ${pct(a.relevance / 3)}%${item.body ? '、本文から判定' : ''}）`),
       ...(p.intent != null ? [span('sj-m', `意図一致 ${pct(p.intent)}`, 'この記事の種類が、検索した人の求める種類（ツールバーに表示）と合っている度合い')] : []),
       span('sj-muted', `元${item.rank}位`),
     );
     if (a.kind && SJ_KINDS[a.kind]) {
       const adj = settings.kindAdjust[a.kind] || 0;
       const kindCls = adj > 0 ? 'sj-kind sj-kind-up' : adj < 0 ? 'sj-kind sj-kind-down' : 'sj-kind';
-      bar.append(span(kindCls, SJ_KINDS[a.kind], `記事の種類。設定で「${adj > 0 ? '上げる' : adj < 0 ? '下げる' : 'そのまま'}」になっています`));
+      const kindTip = `記事の種類。設定で「${adj > 0 ? '上げる' : adj < 0 ? '下げる' : 'そのまま'}」になっています${unsure.kind ? UNSURE_NOTE : ''}`;
+      bar.append(span(unsure.kind ? `${kindCls} sj-unsure` : kindCls, unsure.kind ? `${SJ_KINDS[a.kind]}?` : SJ_KINDS[a.kind], kindTip));
     }
     if (a.publisher && SJ_PUBLISHERS[a.publisher]) {
       const adj = settings.publisherAdjust[a.publisher] || 0;
       const pubCls = adj > 0 ? 'sj-kind sj-kind-up' : adj < 0 ? 'sj-kind sj-kind-down' : 'sj-kind';
-      bar.append(span(pubCls, SJ_PUBLISHERS[a.publisher], `発信者の立場。設定で「${adj > 0 ? '上げる' : adj < 0 ? '下げる' : 'そのまま'}」になっています`));
+      const pubTip = `発信者の立場。設定で「${adj > 0 ? '上げる' : adj < 0 ? '下げる' : 'そのまま'}」になっています${unsure.publisher ? UNSURE_NOTE : ''}`;
+      bar.append(span(unsure.publisher ? `${pubCls} sj-unsure` : pubCls, unsure.publisher ? `${SJ_PUBLISHERS[a.publisher]}?` : SJ_PUBLISHERS[a.publisher], pubTip));
     }
     if (item.body) bar.append(span('sj-muted', '本文で判定', '関連度は記事ページの本文も読んで判定しました'));
     else if (item.bodyPending) bar.append(span('sj-muted', '本文を読み込み中…'));
+    else if (item.bodySkipped) bar.append(span('sj-muted', 'タイトルで判定', 'タイトルと説明文だけで関連度の判断がはっきりしていたので、本文は読みませんでした'));
     if (lowRel) bar.append(span('sj-warn', '関連薄'));
     if (item.date) bar.append(span('sj-muted', item.date.replace(/-/g, '/')));
     if (a.freshness != null && a.freshness < 0.5 && batch.staleness >= 1.5) {
@@ -251,11 +262,15 @@
 
   // 本文モード：まずタイトルの判定で並べ、本文の判定が届いたものから関連度だけを差し替える
   // （検証で本文が効いたのは関連度だけだったため。量産・一次情報・売り込みはタイトルの判定のまま）
+  // v0.3.5 から、タイトルでの関連度の判定に迷った結果だけ本文を読む（sjNeedsBody。費用と待ち時間が約半分になる）
   async function readBodies(query, batch) {
-    batch.items.forEach(it => { it.bodyPending = true; });
+    const need = batch.items.map(it => sjNeedsBody(it.a));
+    batch.items.forEach((it, i) => { it.bodyPending = need[i]; it.bodySkipped = !need[i]; });
     renderAll();
-    const res = await browser.runtime.sendMessage({ type: 'judgeBody', query, results: batch.items.map(it => it.data) });
+    if (!need.some(Boolean)) return;
+    const res = await browser.runtime.sendMessage({ type: 'judgeBody', query, results: batch.items.map((it, i) => (need[i] ? it.data : null)) });
     batch.items.forEach((it, i) => {
+      if (!need[i]) return;
       it.bodyPending = false;
       const b = res.ok && res.answers[i];
       if (!b) return;

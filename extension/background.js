@@ -165,12 +165,15 @@ const normalize = a => ({
   kind: a.kind ? a.kind.choice : null,
   kindProbs: a.kind ? a.kind.probabilities : null, // 検索意図との一致度の計算に使う
   publisher: a.publisher ? a.publisher.choice : null,
+  // Jevの確信度（score・choice のみ。noul は確率そのものが 0.5 に近いほど迷っている）。表示で迷った判定を薄くする
+  conf: { firsthand: a.firsthand.confidence, kind: a.kind ? a.kind.confidence : null, publisher: a.publisher ? a.publisher.confidence : null },
   kv: KIND_VERSION,
 });
 
 // ---- 本文を読む ----
 // 検証データ（第2弾）の確認用では、本文を読むと関連度は良くなったが、量産と一次情報は悪くなり、売り込みは変わらなかった。
-// そのため本文では関連度だけを判定し直し、ほかはタイトルの判定のまま使う（本文で聞く質問が1つになり費用も下がる）
+// そのため本文では関連度だけを判定し直し、ほかはタイトルの判定のまま使う（本文で聞く質問が1つになり費用も下がる）。
+// さらに v0.3.5 から、タイトルでの関連度の判定に迷った結果だけ本文を読む（どの結果を読むかは content.js が決める）
 const BODY_NOTE = '検索結果のタイトル・説明文に加えて、ページ本文の見出しと冒頭（`page`）を読んで判断してください。';
 const BODY_QUESTIONS = Object.fromEntries(Object.entries({ relevance: RESULT_QUESTIONS.relevance }).map(([k, q]) =>
   [k, { ...q, instructions: q.instructions.replace('タイトル・説明文・ドメインから判断します。', '') + BODY_NOTE }]));
@@ -197,7 +200,7 @@ async function judgeBody({ query, results }) {
   }
   const { cacheDays } = await sjLoadSettings();
   const answers = await Promise.all(results.map(async r => {
-    if (!r.href) return null;
+    if (!r || !r.href) return null; // r = null はタイトルだけで判断がはっきりしていて、本文を読まない結果
     const k = `b:${query}\n${r.domain}\n${r.title}`;
     const hit = await cacheGet(k, cacheDays * 864e5);
     if (hit === null || (hit && hit.kv === KIND_VERSION)) return hit;

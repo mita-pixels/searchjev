@@ -52,6 +52,21 @@ var SJ_PRESETS = {
   google: { label: 'Googleの順位を重視', note: '生活系の検索向け。並べ替えは控えめ', weights: { seo: 1, firsthand: 0.5, commercial: 0.5, google: 3, relevance: 1, kind: 0.5, publisher: 0.5, intent: 0.5 } },
 };
 
+// 本文モードで本文を読むのは、タイトルでの関連度の判定に迷った結果だけ（確率 0.1〜0.9）。
+// 検証データ（第2弾）では、全部読むより関連度がよく当たり（調整用 0.765→0.799、確認用 0.790→0.806）、読む数は約半分になった（poc/testset/gate.mjs）
+var SJ_BODY_GATE = 0.8;
+function sjNeedsBody(a) { return Math.abs(a.relevance / 3 - 0.5) * 2 < SJ_BODY_GATE; }
+
+// 判定に迷っているか。noul は確率 0.3〜0.7、score・choice は Jev の確信度 50% 未満を「迷っている」とする
+// （検証データ（第2弾）では、記事の種類の正解率が確信度 0.8 以上で 89%、0.5 未満で 44%）
+function sjUnsure(a) {
+  const noul = p => Math.abs(p - 0.5) < 0.2;
+  const low = c => c != null && c < 0.5;
+  const c = a.conf || {};
+  return { seo: noul(a.seo), commercial: noul(a.commercial), relevance: noul(a.relevance / 3),
+    firsthand: low(c.firsthand), kind: low(c.kind), publisher: low(c.publisher) };
+}
+
 // 表示用の項目別スコア（0〜100、すべて「高いほど良い」）。種類や検索意図が分からないときはその項目を含めない
 // intent = 検索した人が求める記事の種類の確率（検索語ごとに Jev で判定）。settings から種類・発信者ごとの上げ下げを読む
 function sjParts(a, rankScore, settings, intent) {
