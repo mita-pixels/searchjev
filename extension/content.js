@@ -30,12 +30,25 @@
     return c;
   }
 
-  // 表示URL：PC版は cite、スマホ版は「https://〜」だけが書かれた span
+  // 表示URL：PC版は cite、スマホ版は「https://〜」だけが書かれた span。
+  // Reddit や note などは cite に URL ではなく「10 件以上のコメント · 1 年前」が入るので、URLで始まるものだけ使う
   function displayUrl(block) {
     const cite = block.querySelector('cite');
-    if (cite) return cite.innerText.trim();
+    if (cite && /^https?:\/\//.test(cite.innerText.trim())) return cite.innerText.trim();
     const span = [...block.querySelectorAll('span')].find(s => /^https?:\/\/\S+$/.test(s.textContent.trim()));
     return span ? span.textContent.trim() : '';
+  }
+
+  // 表示URLがない結果は、リンク先からドメインを取る（Googleのリダイレクトなら ping 属性の url=）
+  function linkUrl(a) {
+    try {
+      const u = new URL(a.href);
+      if (!/(^|\.)google\./.test(u.hostname)) return u;
+      const ping = a.getAttribute('ping');
+      const real = ping && new URLSearchParams(ping.split('?')[1] || '').get('url');
+      if (real) return new URL(real);
+    } catch (e) { /* 読めないリンクはドメインなしのまま */ }
+    return null;
   }
 
   function extractNew(rso) {
@@ -49,8 +62,15 @@
       seen.add(block);
       const title = h.innerText.trim();
       const citeT = displayUrl(block);
-      let domain = '';
-      try { domain = new URL(citeT.split(' ')[0]).hostname; } catch (e) { /* 動画などは表示URLがない */ }
+      let domain = '', path = citeT.split('›').slice(1).join('›').trim();
+      try { domain = new URL(citeT.split(' ')[0]).hostname; } catch (e) {
+        const u = linkUrl(a); // 動画・Reddit・note などは表示URLがない
+        if (u) {
+          domain = u.hostname;
+          try { path = decodeURIComponent(u.pathname); } catch (e2) { path = u.pathname; }
+          path = path.slice(0, 80);
+        }
+      }
       const lines = block.innerText.split('\n').map(s => s.trim()).filter(Boolean);
       const snippet = lines
         .filter(l => l !== title && l !== citeT && l !== 'ウェブ検索結果' && l !== 'もっと見る' && !l.startsWith('http'))
@@ -59,7 +79,7 @@
         block,
         container: containerOf(block, rso),
         // href は本文を読むときだけ使う（Googleのリダイレクトリンクのまま）
-        data: { title, domain, path: citeT.split('›').slice(1).join('›').trim(), snippet, href: a.href },
+        data: { title, domain, path, snippet, href: a.href },
         date: articleDate(snippet),
       });
     }
