@@ -28,6 +28,8 @@
   label.check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
   #status { min-height: 1.6em; }
   .ok { color: var(--ok); } .err { color: var(--err); }
+  a { color: var(--accent); }
+  ol.muted { margin: 8px 0; padding-left: 1.5em; }
 
   /* プリセット */
   .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
@@ -79,6 +81,17 @@
     <p class="muted">キーはこのブラウザの中（拡張のストレージ）にだけ保存され、api.typesafe.ai への送信にだけ使われます。<br>
       判定のため、検索語と検索結果のタイトル・説明文・ドメインが TypeSafe に送信されます。</p>
     <p id="status"></p>
+    <details>
+      <summary>キーの取り方と費用の目安</summary>
+      <ol class="muted">
+        <li><a href="https://console.typesafe.ai/" target="_blank" rel="noopener">TypeSafe のコンソール</a>でアカウントを作る</li>
+        <li><a href="https://console.typesafe.ai/keys" target="_blank" rel="noopener">API Keys</a> でキーを作り、コピーする</li>
+        <li>上の欄に貼り付けて「保存」を押す</li>
+      </ol>
+      <p class="muted">費用は TypeSafe のアカウントに請求されます。目安は<b>1回の検索で約0.2円</b>（本文を読むモードでは約0.3円）、1日30回検索して<b>1か月200円前後</b>です。
+        同じ検索結果は数日間キャッシュするので、もう一度開いても費用はかかりません。<br>
+        ※2026年10月時点の公表価格（入力10億トークンあたり42ドル）と、1ドル150円で計算した入力分の金額です。正確な請求額はコンソールで確認してください。</p>
+    </details>
   </section>
 
   <section>
@@ -103,7 +116,7 @@
     <p class="muted">タイトルと説明文だけでは分からない「本当に疑問に答えているか」を、本文から判定し直します。
       本文を読むのは、タイトルだけでは関連度の判断に迷った結果（およそ半分）だけです。検証では、全部読むよりもこのほうがよく当たりました（関連度の当たり具合：タイトルのみ 0.77、全部読む 0.79、迷った結果だけ読む 0.81）。
       量産・一次情報・売り込みは、検証で本文を読んでも良くならなかったため、タイトルと説明文の判定のままです。
-      そのかわり、Jevの費用が約2倍になり、本文の判定が届くまで数秒かかります（先にタイトルの判定で並べ、届いたものから差し替えます）。<br>
+      そのかわり、Jevの費用が約1.5倍になり、本文の判定が届くまで数秒かかります（先にタイトルの判定で並べ、届いたものから差し替えます）。<br>
       オンにすると、記事ページを読み込むために「すべてのウェブサイトのデータへのアクセス」の許可を求めます。
       ページはCookieなしで取得し、本文の冒頭（約2,500文字）と見出しだけをTypeSafeに送ります。</p>
     <p id="bodyStatus" class="muted"></p>

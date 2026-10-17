@@ -12,3 +12,4 @@ node_modules/
 # ローカル用の設定・作業ファイル
 .claude/
 extension/.amo-upload-uuid
+drafts/
