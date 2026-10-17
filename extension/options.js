@@ -4,11 +4,12 @@ let settings;
 
 const WEIGHTS = [
   { key: 'seo', name: '非量産', color: '#2f6fdd', desc: 'SEO・アフィリエイト目的の量産記事を下げる。検証で最もよく当たった指標' },
-  { key: 'firsthand', name: '一次情報', color: '#1d8a4e', desc: '公式・公的機関・実体験・独自データ・専門家を上げる' },
-  { key: 'commercial', name: '非商業', color: '#c77c02', desc: '購入・申込への誘導が主目的の記事を下げる。公式の商品・料金ページなど、一次情報が高いページは下げない' },
-  { key: 'google', name: 'Googleの順位', color: '#7a5af5', desc: 'Googleの元の順位を残す。生活系の検索ではGoogleの順位がよく当たる' },
-  { key: 'relevance', name: '関連度', color: '#8a8a85', desc: '検索語の疑問に答えていそうかを上げる。検証では量産記事ほど高く出たため、既定は 0' },
+  { key: 'firsthand', name: '一次情報', color: '#1d8a4e', desc: '公式・公的機関・実体験（Q&Aの体験談やファンwikiを含む）・独自データ・専門家を上げる' },
+  { key: 'commercial', name: '非商業', color: '#c77c02', desc: '購入・申込への誘導が主目的の記事（企業のオウンドメディア、比較・ランキング記事を含む）を下げる。一次情報が高いページは下げない' },
+  { key: 'google', name: 'Googleの順位', color: '#7a5af5', desc: 'Googleの元の順位をどれだけ残すか。生活系の検索ではGoogleの順位がよく当たる' },
+  { key: 'relevance', name: '関連度', color: '#8a8a85', desc: '検索した人の目的を果たせそうなページを上げる' },
   { key: 'kind', name: '記事の種類', color: '#c2417a', desc: '「記事の種類」で選んだ上げる・下げるを効かせる強さ' },
+  { key: 'publisher', name: '発信者の立場', color: '#5b6b2f', desc: '「発信者の立場」で選んだ上げる・下げるを効かせる強さ' },
   { key: 'intent', name: '意図との一致', color: '#0f8a8a', desc: '検索した人が求める種類（例：「〜 おすすめ」なら比較・おすすめ）の記事を上げる' },
 ];
 
@@ -19,7 +20,7 @@ const SAMPLE = [
   { t: '至急です。東京でIMAXがあるおすすめの映画館ありますか（知恵袋）', seo: 0.20, firsthand: 1.3, commercial: 0.07, relevance: 2.1, kind: "voice" },
   { t: 'オタクのお気に入り映画館メモ（東京・神奈川）（note）', seo: 0.38, firsthand: 1.8, commercial: 0.11, relevance: 1.8, kind: "voice" },
   { t: '2026年に東京で観るべきIMAX映画ベスト10（CinemaView）', seo: 0.82, firsthand: 0.8, commercial: 0.47, relevance: 1.8, kind: "comparison" },
-  { t: 'IMAX® || TOHOシネマズ（公式）', seo: 0.16, firsthand: 2.8, commercial: 0.70, relevance: 1.3, kind: "official" },
+  { t: 'IMAX® || TOHOシネマズ（公式）', seo: 0.16, firsthand: 2.8, commercial: 0.70, relevance: 1.3, kind: "product", publisher: "party" },
   { t: 'プロジェクト・ヘイル・メリーのためのベストIMAXスクリーン（Reddit）', seo: 0.41, firsthand: 1.7, commercial: 0.13, relevance: 2.7, kind: "voice" },
   { t: 'IMAX®の映画館一覧（映画.com）', seo: 0.25, firsthand: 1.0, commercial: 0.39, relevance: 2.5, kind: "other" },
   { t: 'おすすめの IMAX スクリーン（個人ブログ・スクリーンサイズ一覧）', seo: 0.44, firsthand: 1.4, commercial: 0.19, relevance: 2.5, kind: "comparison" },
@@ -128,7 +129,8 @@ function renderPreview() {
     tr.innerHTML = `<td class="num"></td><td class="num total"></td><td></td><td class="num"></td>`;
     tr.children[0].textContent = `${i + 1}位`;
     tr.children[1].textContent = r.cut ? '足切り' : r.score;
-    tr.children[2].textContent = r.kind && SJ_KINDS[r.kind] ? `${r.t}［${SJ_KINDS[r.kind]}］` : r.t;
+    const tags = [SJ_KINDS[r.kind], SJ_PUBLISHERS[r.publisher]].filter(Boolean);
+    tr.children[2].textContent = tags.length ? `${r.t}［${tags.join('・')}］` : r.t;
     const m = tr.children[3];
     m.textContent = move > 0 ? `↑${move}（元${r.orig}位）` : move < 0 ? `↓${-move}（元${r.orig}位）` : `元${r.orig}位`;
     m.className = 'num ' + (move > 0 ? 'up' : move < 0 ? 'down' : 'muted');
@@ -136,9 +138,10 @@ function renderPreview() {
   });
 }
 
-function buildKinds() {
-  const box = $('kinds');
-  for (const [k, name] of Object.entries(SJ_KINDS)) {
+// 記事の種類・発信者の立場ごとの「上げる／そのまま／下げる」
+function buildKinds(boxId = 'kinds', names = SJ_KINDS, field = 'kindAdjust') {
+  const box = $(boxId);
+  for (const [k, name] of Object.entries(names)) {
     const row = document.createElement('label');
     row.className = 'kind';
     const sel = document.createElement('select');
@@ -148,8 +151,8 @@ function buildKinds() {
       o.textContent = t;
       sel.append(o);
     }
-    sel.value = settings.kindAdjust[k] || 0;
-    sel.onchange = () => { settings.kindAdjust[k] = +sel.value; renderPreview(); save(); };
+    sel.value = settings[field][k] || 0;
+    sel.onchange = () => { settings[field][k] = +sel.value; renderPreview(); save(); };
     const span = document.createElement('span');
     span.textContent = name;
     row.append(span, sel);
@@ -191,6 +194,7 @@ async function init() {
   if (apiKey) { $('apiKey').value = apiKey; status('APIキーは保存済みです', 'ok'); }
   await loadPreview();
   buildKinds();
+  buildKinds("publishers", SJ_PUBLISHERS, "publisherAdjust");
   renderBody();
   // 許可の確認ダイアログはユーザーの操作（このクリック）の中で出す必要がある
   $('readBody').onchange = async e => {

@@ -114,9 +114,9 @@
     bar.append(
       span(`sj-total ${cls}`, `総合 ${item.score}`, '下の項目別スコアを、設定の重みで平均した点数（0〜100）'),
       span('sj-m', `非量産 ${pct(p.seo)}`, `量産記事らしくなさ。SEO・アフィリエイト目的の量産記事である確率 ${pct(a.seo)}% の裏返し`),
-      span('sj-m', `一次情報 ${pct(p.firsthand)}`, `公式・公的機関・実体験・独自データ・専門家の度合い（Jevの評価 ${(a.firsthand * 3).toFixed(1)} / 3）`),
-      span('sj-m', `非商業 ${pct(p.commercial)}`, `売り込みらしくなさ。購入・申込への誘導が主目的である確率 ${pct(a.commercial)}%。公式など一次情報が高いページは減点を弱める`),
-      span('sj-m', `関連 ${pct(p.relevance)}`, `検索語の疑問に答えていそうか（Jevの評価 ${a.relevance.toFixed(1)} / 3）`),
+      span('sj-m', `一次情報 ${pct(p.firsthand)}`, `公式・公的機関・実体験（Q&Aの体験談を含む）・独自データ・専門家の度合い（Jevの評価 ${(a.firsthand * 3).toFixed(1)} / 3）`),
+      span('sj-m', `非商業 ${pct(p.commercial)}`, `売り込みらしくなさ。購入・申込への誘導が主目的である確率 ${pct(a.commercial)}%（企業のオウンドメディアや比較・ランキング記事も売り込みとみなす）。一次情報が高いページは減点を弱める`),
+      span('sj-m', `関連 ${pct(p.relevance)}`, `検索した人の目的を果たせそうなページか（確率 ${pct(a.relevance / 3)}%）`),
       ...(p.intent != null ? [span('sj-m', `意図一致 ${pct(p.intent)}`, 'この記事の種類が、検索した人の求める種類（ツールバーに表示）と合っている度合い')] : []),
       span('sj-muted', `元${item.rank}位`),
     );
@@ -125,7 +125,12 @@
       const kindCls = adj > 0 ? 'sj-kind sj-kind-up' : adj < 0 ? 'sj-kind sj-kind-down' : 'sj-kind';
       bar.append(span(kindCls, SJ_KINDS[a.kind], `記事の種類。設定で「${adj > 0 ? '上げる' : adj < 0 ? '下げる' : 'そのまま'}」になっています`));
     }
-    if (item.body) bar.append(span('sj-muted', '本文で判定', '記事ページの本文も読んで判定しました'));
+    if (a.publisher && SJ_PUBLISHERS[a.publisher]) {
+      const adj = settings.publisherAdjust[a.publisher] || 0;
+      const pubCls = adj > 0 ? 'sj-kind sj-kind-up' : adj < 0 ? 'sj-kind sj-kind-down' : 'sj-kind';
+      bar.append(span(pubCls, SJ_PUBLISHERS[a.publisher], `発信者の立場。設定で「${adj > 0 ? '上げる' : adj < 0 ? '下げる' : 'そのまま'}」になっています`));
+    }
+    if (item.body) bar.append(span('sj-muted', '本文で判定', '関連度は記事ページの本文も読んで判定しました'));
     else if (item.bodyPending) bar.append(span('sj-muted', '本文を読み込み中…'));
     if (lowRel) bar.append(span('sj-warn', '関連薄'));
     if (item.date) bar.append(span('sj-muted', item.date.replace(/-/g, '/')));
@@ -141,7 +146,7 @@
       if (!it.a) continue;
       it.a.freshness = sjFreshness(it.date, batch.staleness);
       const rankScore = Math.max(0, 1 - (it.rank - 1) / RANK_SPAN);
-      it.parts = sjParts(it.a, rankScore, settings.kindAdjust, batch.intent);
+      it.parts = sjParts(it.a, rankScore, settings, batch.intent);
       it.score = sjFinalScore(it.a, rankScore, settings, batch.intent);
     }
   }
@@ -244,7 +249,8 @@
     if (res.ok && settings.readBody) await readBodies(query, batch);
   }
 
-  // 本文モード：まずタイトルの判定で並べ、本文の判定が届いたものから差し替える
+  // 本文モード：まずタイトルの判定で並べ、本文の判定が届いたものから関連度だけを差し替える
+  // （検証で本文が効いたのは関連度だけだったため。量産・一次情報・売り込みはタイトルの判定のまま）
   async function readBodies(query, batch) {
     batch.items.forEach(it => { it.bodyPending = true; });
     renderAll();
@@ -253,7 +259,7 @@
       it.bodyPending = false;
       const b = res.ok && res.answers[i];
       if (!b) return;
-      it.a = { ...b, kind: b.kind || it.a.kind };
+      it.a = { ...it.a, relevance: b.relevance };
       if (b.date) it.date = b.date; // ページのメタ情報の日付は説明文の日付より正確
       it.body = true;
     });
